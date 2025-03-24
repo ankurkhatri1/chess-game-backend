@@ -15,13 +15,17 @@ const io = new Server(server, {
 
 app.use(cors());
 
-// Store active challenges and their players
-const challenges = new Map(); // challengeId -> { players: [], game: Chess, currentTurn: string }
+const challenges = new Map();
 
 io.on('connection', (socket) => {
   console.log('EK AUR LADAI-BAZ CONNECT HO GAYA!', socket.id);
 
   socket.on('create-challenge', (challengeId) => {
+    if (!challengeId) {
+      socket.emit('error', 'Challenge ID is required!');
+      return;
+    }
+
     if (challenges.has(challengeId)) {
       socket.emit('error', 'Challenge ID already exists!');
       return;
@@ -34,20 +38,23 @@ io.on('connection', (socket) => {
     });
 
     socket.emit('role', { role: 'initiator', color: 'white' });
-    console.log(`Challenge created: ${challengeId}`);
+    console.log(`Challenge created: ${challengeId}, Initiator: ${socket.id}`);
   });
 
   socket.on('join-challenge', (challengeId) => {
+    console.log(`Join request for challenge: ${challengeId}, Socket: ${socket.id}`);
     const challenge = challenges.get(challengeId);
     if (!challenge) {
       socket.emit('error', 'Challenge not found!');
       socket.disconnect();
+      console.log(`Challenge not found: ${challengeId}`);
       return;
     }
 
     if (challenge.players.length >= 2) {
       socket.emit('error', 'Game is already in progress! You cannot join.');
       socket.disconnect();
+      console.log(`Challenge ${challengeId} is full`);
       return;
     }
 
@@ -55,25 +62,29 @@ io.on('connection', (socket) => {
     socket.emit('role', { role: 'receiver', color: 'black' });
     io.to(challenge.players[0].id).emit('start', { turn: challenge.currentTurn, fen: challenge.game.fen() });
     socket.emit('start', { turn: challenge.currentTurn, fen: challenge.game.fen() });
-    console.log(`Player joined challenge: ${challengeId}`);
+    console.log(`Player joined challenge: ${challengeId}, Receiver: ${socket.id}`);
   });
 
   socket.on('move', ({ san, challengeId }) => {
+    console.log(`Move received for challenge: ${challengeId}, Move: ${san}`);
     const challenge = challenges.get(challengeId);
     if (!challenge) {
       socket.emit('error', 'Challenge not found!');
+      console.log(`Challenge not found for move: ${challengeId}`);
       return;
     }
 
     const player = challenge.players.find((p) => p.id === socket.id);
     if (player.color !== challenge.currentTurn) {
       socket.emit('error', 'TERI BAARI NAHI HAI, BHAI!');
+      console.log(`Not your turn: ${socket.id}`);
       return;
     }
 
     const move = challenge.game.move(san);
     if (!move) {
       socket.emit('error', 'GALAT CHAL, BHAI!');
+      console.log(`Invalid move: ${san}`);
       return;
     }
 
@@ -82,18 +93,22 @@ io.on('connection', (socket) => {
       io.to(p.id).emit('move', { san, fen: challenge.game.fen() });
       io.to(p.id).emit('turn', challenge.currentTurn);
     });
+    console.log(`Move processed for challenge: ${challengeId}, New turn: ${challenge.currentTurn}`);
   });
 
   socket.on('signal', ({ data, to, challengeId }) => {
+    console.log(`Signal for challenge: ${challengeId}, From: ${socket.id}, To: ${to}`);
     const challenge = challenges.get(challengeId);
     if (!challenge) {
       socket.emit('error', 'Challenge not found!');
+      console.log(`Challenge not found for signal: ${challengeId}`);
       return;
     }
 
     const targetPlayer = challenge.players.find((p) => p.role === to);
     if (targetPlayer) {
       io.to(targetPlayer.id).emit('signal', { data, from: socket.id });
+      console.log(`Signal sent to ${targetPlayer.id}`);
     } else {
       console.error('Target player not found:', to);
     }
@@ -104,7 +119,7 @@ io.on('connection', (socket) => {
     for (const [challengeId, challenge] of challenges.entries()) {
       const playerIndex = challenge.players.findIndex((p) => p.id === socket.id);
       if (playerIndex !== -1) {
-        challenges.delete(challengeId); // Delete challenge if a player disconnects
+        challenges.delete(challengeId);
         challenge.players.forEach((p) => {
           if (p.id !== socket.id) {
             io.to(p.id).emit('error', 'Opponent disconnected! Game ended.');
