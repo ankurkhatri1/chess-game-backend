@@ -2,13 +2,13 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { Chess } = require('chess.js'); // Chess.js backend mein bhi chahiye validation ke liye
+const { Chess } = require('chess.js');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'https://chess-game-frontend-pi.vercel.app/', // Replace with your Vercel URL
+    origin: 'https://chess-game-frontend-pi.vercel.app',
     methods: ['GET', 'POST'],
   },
 });
@@ -17,7 +17,7 @@ app.use(cors());
 
 let players = [];
 let currentTurn = 'white';
-let game = new Chess(); // Server-side game state
+let game = new Chess();
 
 io.on('connection', (socket) => {
   console.log('EK AUR LADAI-BAZ CONNECT HO GAYA!', socket.id);
@@ -42,7 +42,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const move = game.move(moveSan); // Validate move server-side
+    const move = game.move(moveSan);
     if (!move) {
       socket.emit('error', 'GALAT CHAL, BHAI!');
       return;
@@ -53,18 +53,20 @@ io.on('connection', (socket) => {
     io.emit('turn', currentTurn);
   });
 
-  socket.on('signal', (data) => {
-    socket.broadcast.emit('signal', data);
+  socket.on('peer-id', ({ peerId, role }) => {
+    console.log(`Received Peer ID from ${role}: ${peerId}`);
+    socket.broadcast.emit('peer-id', { peerId, role });
   });
 
   socket.on('disconnect', () => {
     console.log('EK LADAI-BAZ BHAG GAYA!', socket.id);
     players = players.filter((player) => player.id !== socket.id);
     currentTurn = 'white';
-    game = new Chess(); // Reset game
+    game = new Chess();
   });
 });
 
-server.listen(3000, () => {
-  console.log('SERVER CHALU HAI, 3000 PE LADAI KE LIYE TAYYAR!');
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`SERVER CHALU HAI, ${PORT} PE LADAI KE LIYE TAYYAR!`);
 });
