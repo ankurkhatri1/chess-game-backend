@@ -54,10 +54,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('signal', ({ data, to }) => {
-    console.log('Signal received from', socket.id, 'for', to);
+    console.log(`Signal from ${socket.id} to ${to}:`, data.type || 'candidate');
     const targetPlayer = players.find((p) => p.role === to);
     if (targetPlayer) {
-      io.to(targetPlayer.id).emit('signal', { data, from: players.find((p) => p.id === socket.id).role });
+      io.to(targetPlayer.id).emit('signal', { data, from: socket.id });
+    } else {
+      console.error('Target player not found:', to);
     }
   });
 
