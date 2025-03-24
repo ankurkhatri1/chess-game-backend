@@ -8,12 +8,23 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'https://chess-game-frontend-pi.vercel.app',
+    origin: [
+      'https://chess-game-frontend-pi.vercel.app', // Vercel frontend URL
+      'http://localhost:5173', // Localhost for development
+    ],
     methods: ['GET', 'POST'],
+    credentials: true, // Allow credentials for WebSocket
   },
+  path: '/socket.io', // Ensure correct path for production
 });
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://chess-game-frontend-pi.vercel.app',
+    'http://localhost:5173',
+  ],
+  credentials: true,
+}));
 
 const challenges = new Map();
 
@@ -38,7 +49,7 @@ io.on('connection', (socket) => {
     });
 
     socket.emit('role', { role: 'initiator', color: 'white' });
-    console.log(`Challenge created: ${challengeId}, Initiator: ${socket.id}`);
+    console.log(`Challenge created: ${challengeId}, Initiator: ${socket.id}, Role emitted`);
   });
 
   socket.on('join-challenge', (challengeId) => {
@@ -62,7 +73,7 @@ io.on('connection', (socket) => {
     socket.emit('role', { role: 'receiver', color: 'black' });
     io.to(challenge.players[0].id).emit('start', { turn: challenge.currentTurn, fen: challenge.game.fen() });
     socket.emit('start', { turn: challenge.currentTurn, fen: challenge.game.fen() });
-    console.log(`Player joined challenge: ${challengeId}, Receiver: ${socket.id}`);
+    console.log(`Player joined challenge: ${challengeId}, Receiver: ${socket.id}, Start emitted`);
   });
 
   socket.on('move', ({ san, challengeId }) => {
