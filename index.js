@@ -8,7 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'https://chess-game-frontend-pi.vercel.app', // Vercel URL daal dena deploy ke baad
+    origin: 'https://chess-game-frontend-pi.vercel.app',
     methods: ['GET', 'POST'],
   },
 });
@@ -53,8 +53,12 @@ io.on('connection', (socket) => {
     io.emit('turn', currentTurn);
   });
 
-  socket.on('signal', (data) => {
-    socket.broadcast.emit('signal', data);
+  socket.on('signal', ({ data, to }) => {
+    console.log('Signal received from', socket.id, 'for', to);
+    const targetPlayer = players.find((p) => p.role === to);
+    if (targetPlayer) {
+      io.to(targetPlayer.id).emit('signal', { data, from: players.find((p) => p.id === socket.id).role });
+    }
   });
 
   socket.on('disconnect', () => {
