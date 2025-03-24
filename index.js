@@ -13,9 +13,9 @@ const io = new Server(server, {
       'http://localhost:5173', // Localhost for development
     ],
     methods: ['GET', 'POST'],
-    credentials: true, // Allow credentials for WebSocket
+    credentials: true,
   },
-  path: '/socket.io', // Ensure correct path for production
+  path: '/socket.io',
 });
 
 app.use(cors({
@@ -25,6 +25,12 @@ app.use(cors({
   ],
   credentials: true,
 }));
+
+// Health check endpoint to keep Render app active
+app.get('/health', (req, res) => {
+  res.status(200).send('Server is alive!');
+  console.log('Health check hit:', new Date().toISOString());
+});
 
 const challenges = new Map();
 
